@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/go-bip39"
 	"github.com/desmos-labs/cosmos-go-wallet/types"
@@ -219,10 +220,65 @@ func PollUpdates(bot *tgbotapi.BotAPI, db *badger.DB, updateConfig tgbotapi.Upda
 			}
 
 			if message.Command() == "start" {
-				msg := tgbotapi.NewMessage(message.Chat.ID, "👋🏻 Hi there!\n\nJackal Protocol Bot is your go-to tool for secure file uploads directly through Telegram!\n\n❓ WHAT CAN I DO ❓\n\n- /wallet will create a new wallet for you and can be used to see your address any time!\n- /balance will show you your accounts $JKL balance.\n- /upload will let you upload files to the Jackal Protocol.")
+				msg := tgbotapi.NewMessage(message.Chat.ID, "👋🏻 Hi there!\n\nJackal Protocol Bot is your go-to tool for secure file uploads directly through Telegram!\n\n❓ WHAT CAN I DO ❓\n\n- /wallet will create a new wallet for you and can be used to see your address any time!\n- /balance will show you your accounts $JKL balance.\n- /upload will let you upload files to the Jackal Protocol.\n- /withdraw `{address}` will send all the tokens in this wallet to the specified address.")
 				msg.ParseMode = tgbotapi.ModeMarkdown
 				msg.ReplyToMessageID = message.MessageID
 
+				_, _ = bot.Send(msg)
+			}
+
+			if message.Command() == "withdraw" {
+				address := message.CommandArguments()
+				if len(address) == 0 {
+					msg := tgbotapi.NewMessage(message.Chat.ID, "Must provide an address. EX: /withdraw `{jkl1...}`")
+					msg.ParseMode = tgbotapi.ModeMarkdown
+					_, _ = bot.Send(msg)
+					return
+				}
+				adr, err := sdk.AccAddressFromBech32(address)
+				if err != nil {
+					msg := tgbotapi.NewMessage(message.Chat.ID, "I can't find that account, you likely typed in the wrong address.")
+					_, _ = bot.Send(msg)
+					return
+				}
+				bank := banktypes.NewQueryClient(wallet.Client.GRPCConn)
+				bal, err := bank.Balance(context.Background(), &banktypes.QueryBalanceRequest{
+					Address: wallet.AccAddress(),
+					Denom:   "ujkl",
+				})
+				if err != nil {
+					ErrorBot(bot, message.Chat.ID, err)
+					return
+				}
+				fmt.Println(bal.Balance.Denom)
+				fmt.Println(bal.Balance.Amount.Int64())
+
+				myAdr, _ := sdk.AccAddressFromBech32(wallet.AccAddress())
+				b := *bal.Balance
+				b = b.SubAmount(sdk.NewInt(1_000))
+				fmt.Println(b.Amount.Int64())
+
+				m := banktypes.NewMsgSend(myAdr, adr, sdk.NewCoins(b))
+				err = m.ValidateBasic()
+				if err != nil {
+					ErrorBot(bot, message.Chat.ID, err)
+					return
+				}
+				res, err := uploader.PostWithFee(m, wallet)
+				if err != nil {
+					ErrorBot(bot, message.Chat.ID, err)
+					return
+				}
+				var inlineKeyboard = tgbotapi.NewInlineKeyboardMarkup(
+					tgbotapi.NewInlineKeyboardRow(
+						tgbotapi.NewInlineKeyboardButtonURL("View on chain", fmt.Sprintf("https://staking-explorer.com/transaction.php?chain=jackal&tx=%s", res.TxHash)),
+					),
+				)
+				fmt.Println(res)
+				msg := tgbotapi.NewMessage(message.Chat.ID, "Sent!")
+				msg.ParseMode = tgbotapi.ModeMarkdown
+				msg.ReplyToMessageID = message.MessageID
+				msg.ReplyMarkup = inlineKeyboard
 				_, _ = bot.Send(msg)
 			}
 

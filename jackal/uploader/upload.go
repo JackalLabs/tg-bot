@@ -154,6 +154,18 @@ func Post(msg sdk.Msg, w *wallet.Wallet) (*sdk.TxResponse, error) {
 	return res, err
 }
 
+func PostWithFee(msg sdk.Msg, w *wallet.Wallet) (*sdk.TxResponse, error) {
+	fmt.Println("posting message...")
+
+	data := walletTypes.NewTransactionData(
+		msg,
+	).WithGasLimit(100_000).WithFeeAmount(sdk.NewCoins(sdk.NewInt64Coin("ujkl", 200)))
+
+	res, err := w.BroadcastTxCommit(data)
+
+	return res, err
+}
+
 func PostFile(fileData []byte, w *wallet.Wallet) (string, []byte, error) {
 	buf := bytes.NewBuffer(fileData)
 	treeBuffer := bytes.NewBuffer(buf.Bytes())
