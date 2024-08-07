@@ -24,9 +24,6 @@ import (
 
 var userUploads = make(map[int64]int)
 
-var RPC = "https://rpc.jackalprotocol.com:443"
-var GRPC = "jackal-grpc.polkachu.com:17590"
-
 func HandlePhoto(bot *tgbotapi.BotAPI, msgToDelete int, w *wallet.Wallet, message *tgbotapi.Message) {
 	delMsg := tgbotapi.NewDeleteMessage(message.Chat.ID, msgToDelete)
 	_, err := bot.Send(delMsg)
@@ -338,8 +335,8 @@ func LoadWallet(db *badger.DB, id int64) (*wallet.Wallet, error) {
 
 			wal, err := jWallet.CreateWallet(string(val), "m/44'/118'/0'/0/0", types.ChainConfig{
 				Bech32Prefix:  "jkl",
-				RPCAddr:       RPC,
-				GRPCAddr:      GRPC,
+				RPCAddr:       os.Getenv("RPC"),
+				GRPCAddr:      os.Getenv("GRPC"),
 				GasPrice:      "0.02ujkl",
 				GasAdjustment: 1.5,
 			})
@@ -383,8 +380,8 @@ func CreateWallet(db *badger.DB, id int64) (*wallet.Wallet, error) {
 
 		wal, err := jWallet.CreateWallet(seed, "m/44'/118'/0'/0/0", types.ChainConfig{
 			Bech32Prefix:  "jkl",
-			RPCAddr:       RPC,
-			GRPCAddr:      GRPC,
+			RPCAddr:       os.Getenv("RPC"),
+			GRPCAddr:      os.Getenv("GRPC"),
 			GasPrice:      "0.02ujkl",
 			GasAdjustment: 1.5,
 		})
